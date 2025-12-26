@@ -97,6 +97,8 @@ static inline int show_stack(unsigned int count)
         return 0;
 }
 
+
+// test code
 #include <stdio.h>
 #include <unistd.h>
 
@@ -155,12 +157,12 @@ int main()
   int i;
   unsigned int total;
 
-  for (i = 0; i < 4; i++) {
-        stack_set(1);
-        stack_begin(__func__);
+  for (i = 0; i < 4; i++) { // 4 times
+        stack_set(1);  // start record
+        stack_begin(__func__); // trace point start
         total = funca();
-        stack_end(__func__);
-        stack_set(0);
+        stack_end(__func__);   // trace point end
+        stack_set(0);  // stop record
   }
   printf("total = %lu\n", total);
   show_stack(4);
