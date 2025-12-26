@@ -35,8 +35,9 @@ static inline int stack_begin(const char *func_name)
 {
         long tick;
 
-        if (!record_begin)
+        if (!record_begin) {
                 return 0;
+        }
 
         tick = rdtsc();
         x_starty[x_index] = y_index;
@@ -54,11 +55,12 @@ static inline int stack_end(const char *func_name)
 {
         long tick;
 
-        if (!record_begin)
+        if (!record_begin) {
                 return 0;
+        }
 
-        tick = rdtsc();
         x_index--;
+        tick = rdtsc();
         if (func_name != timestamp_name[x_index][x_starty[x_index]]) {
                 printf("error:%s != %s\n", func_name, timestamp_name[x_index][x_starty[x_index]]);
                 return 0;
