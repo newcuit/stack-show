@@ -15,18 +15,19 @@ static inline uint64_t rdtsc(void) {
         return (uint64_t)hi << 32 | lo;
 }
 
-static volatile int stack_start;
-static unsigned long stack_x_depth, stack_y_depth[MAX_STACK_DEPTH];
-static double ts_record[MAX_STACK_DEPTH][MAX_STACK_DEPTH];
-static double ts_record_total[MAX_STACK_DEPTH][MAX_STACK_DEPTH];
-static const char *ts_record_name[MAX_STACK_DEPTH][MAX_STACK_DEPTH];
+static volatile int record_begin;
+static unsigned long x_index, x_starty[MAX_STACK_DEPTH], y_index;
+static double timestamp[MAX_STACK_DEPTH][MAX_STACK_DEPTH];
+static double timestamp_total[MAX_STACK_DEPTH][MAX_STACK_DEPTH];
+static const char *timestamp_name[MAX_STACK_DEPTH][MAX_STACK_DEPTH];
 static inline int stack_set(int status)
 {
-  if (status) {
-        stack_x_depth = 0;
-        memset(stack_y_depth, 0, sizeof(stack_y_depth));
-  }
-        stack_start = status;
+        if (status) {
+                x_index = 0;
+                y_index = 0;
+                memset(x_starty, 0, sizeof(x_starty));
+        }
+        record_begin = status;
         return 0;
 }
 
@@ -34,15 +35,17 @@ static inline int stack_begin(const char *func_name)
 {
         long tick;
 
-        if (!stack_start)
+        if (!record_begin)
                 return 0;
 
         tick = rdtsc();
-        ts_record[stack_x_depth][stack_y_depth[stack_x_depth]] = tick;
-        ts_record_name[stack_x_depth][stack_y_depth[stack_x_depth]] = func_name;
-        stack_x_depth++;
-        if (stack_x_depth >= MAX_STACK_DEPTH) {
-                printf("Warning: stack_x_depth(%ld) > MAX_STACK_DEPTH\n", stack_x_depth);
+        x_starty[x_index] = y_index;
+        timestamp[x_index][x_starty[x_index]] = tick;
+        timestamp_name[x_index][x_starty[x_index]] = func_name;
+        
+        x_index++;
+        if (x_index >= MAX_STACK_DEPTH) {
+                printf("Warning: x_index(%ld) > MAX_STACK_DEPTH\n", x_index);
         }
         return 0;
 }
@@ -51,21 +54,21 @@ static inline int stack_end(const char *func_name)
 {
         long tick;
 
-        if (!stack_start)
+        if (!record_begin)
                 return 0;
 
         tick = rdtsc();
-        stack_x_depth--;
-        if (func_name != ts_record_name[stack_x_depth][stack_y_depth[stack_x_depth]]) {
-                printf("error:%s != %s\n", func_name, ts_record_name[stack_x_depth][stack_y_depth[stack_x_depth]]);
+        x_index--;
+        if (func_name != timestamp_name[x_index][x_starty[x_index]]) {
+                printf("error:%s != %s\n", func_name, timestamp_name[x_index][x_starty[x_index]]);
                 return 0;
         }
-        ts_record[stack_x_depth][stack_y_depth[stack_x_depth]] = tick-ts_record[stack_x_depth][stack_y_depth[stack_x_depth]];
-        ts_record_total[stack_x_depth][stack_y_depth[stack_x_depth]] = ts_record[stack_x_depth][stack_y_depth[stack_x_depth]];
-        stack_y_depth[stack_x_depth]++;
-
-        if (stack_y_depth[stack_x_depth] >= MAX_STACK_DEPTH) {
-                printf("Warning: stack_y_depth(%ld) > MAX_STACK_DEPTH\n", stack_y_depth[stack_x_depth]);
+        timestamp[x_index][x_starty[x_index]] = tick - timestamp[x_index][x_starty[x_index]];
+        timestamp_total[x_index][x_starty[x_index]] += timestamp[x_index][x_starty[x_index]];
+        
+        y_index++;
+        if (y_index >= MAX_STACK_DEPTH) {
+                printf("Warning: y_index(%ld) > MAX_STACK_DEPTH\n", y_index);
         }
         return 0;
 }
@@ -74,21 +77,21 @@ static inline int show_stack(unsigned int count)
 {
         int x, y, i;
 
-  if (count == 0) {
-        return 0;
-  }
+        if (count == 0) {
+                return 0;
+        }
 
         for (y = 0; y < MAX_STACK_DEPTH; y++) {
                 for (x = 0; x < MAX_STACK_DEPTH; x++) {
-                        if (ts_record[x][y] == 0)
+                        if (timestamp_total[x][y] == 0)
                                 continue;
 
                         for (i = 0; i < x; i++)
                                 printf("\t");
-                        printf("%lf: %s\n", ts_record_total[x][y]/count, ts_record_name[x][y]);
+                        printf("%lf: %s\n", timestamp_total[x][y]/count, timestamp_name[x][y]);
                 }
         }
-  memset(ts_record_total, 0, sizeof(ts_record_total));
+        memset(timestamp_total, 0, sizeof(timestamp_total));
         return 0;
 }
 
